@@ -29,7 +29,7 @@ type TicketResponse struct {
 
 type FlightDetails struct {
 	FlightID          string         `json:"flightId"`
-	StartRegisterTime time.Time      `json:"startRegisterTime"`
+	StartRegisterTime time.Time      `json:"registrationStartTime"`
 	Direction         string         `json:"direction"`
 	DepartureTime     time.Time      `json:"departureTime"`
 	AvailableSeats    AvailableSeats `json:"availableSeats"`
@@ -44,7 +44,6 @@ func main() {
 	wg := &sync.WaitGroup{}
 	// URL API
 	url := "https://tickets.reaport.ru/buy"
-	passengers := make([]string, 0)
 	// Генерация UUID для PassengerID
 	passengerUUID := uuid.New().String()
 
@@ -107,7 +106,8 @@ func main() {
 	fmt.Println(string(jsonOutput))
 	flights := responseData.AvailableFlights
 	for _, flight := range flights {
-		for i := 0; i < flight.AvailableSeats.Economy; i++ {
+		passengers := make([]string, 0)
+		for i := 0; i < flight.AvailableSeats.Economy/10; i++ {
 			// Генерация UUID для PassengerID
 			passengerId := uuid.New().String()
 			requestBodyOne := TicketRequest{
@@ -127,7 +127,7 @@ func main() {
 			// Создание контекста с тайм-аутом в 5 секунд
 			ctx, can := context.WithTimeout(context.Background(), 5*time.Second)
 			defer can() // Отмена контекста после завершения
-			fmt.Println("Пассажир", passengerId, "покупает билет на рейс", flight.FlightID)
+			fmt.Println("Пассажир ", passengerId, " покупает билет на рейс", flight.FlightID)
 			// Создание HTTP-запроса с привязкой к контексту
 			req2, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonDat))
 			if err != nil {
@@ -152,7 +152,7 @@ func main() {
 				fmt.Printf("Ошибка: код ответа %d\n", resp.StatusCode)
 				return
 			}
-			passengers = append(passengers, passengerUUID)
+			passengers = append(passengers, passengerId)
 		}
 		// Регистрируемся на рейс
 		wg.Add(1)
@@ -169,7 +169,7 @@ type Passenger struct {
 
 func Register(passangers []string, flightId string, departureTime time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-	registationTime := departureTime.Add(-3 * time.Hour)
+	registationTime := departureTime.Add(-59 * time.Minute).Add(30 * time.Second)
 	timeUntil := time.Until(registationTime)
 	timerChan := time.After(timeUntil)
 	fmt.Println("✈️ Register wait ", flightId, "ждём ", float64(timeUntil)/float64(time.Minute), "минут")
@@ -177,7 +177,7 @@ func Register(passangers []string, flightId string, departureTime time.Time, wg 
 	<-timerChan
 	fmt.Println("✈️ Register begin", flightId)
 	for _, pass := range passangers {
-		fmt.Print("Регистрируется пассажир", pass, "на рейс ", flightId)
+		fmt.Print("Регистрируется пассажир ", pass, " на рейс ", flightId)
 		url := "https://register.reaport.ru/passenger"
 		requestBody := Passenger{
 			Uuid:          pass,
