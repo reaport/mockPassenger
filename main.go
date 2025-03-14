@@ -169,7 +169,7 @@ type Passenger struct {
 
 func Register(passangers []string, flightId string, departureTime time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-	registationTime := departureTime.Add(-59 * time.Minute).Add(30 * time.Second)
+	registationTime := departureTime.Add(-59 * time.Minute).Add(-30 * time.Second)
 	timeUntil := time.Until(registationTime)
 	timerChan := time.After(timeUntil)
 	fmt.Println("✈️ Register wait ", flightId, "ждём ", float64(timeUntil)/float64(time.Minute), "минут")
