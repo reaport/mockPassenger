@@ -142,7 +142,7 @@ func main() {
 			client := &http.Client{}
 			resp, err := client.Do(req2)
 			if err != nil {
-				fmt.Println("Ошибка при выполнении запроса:", err)
+				fmt.Println("Ошибка при выполнении запроса: ", err)
 				return
 			}
 			defer resp.Body.Close()
