@@ -43,9 +43,7 @@ type AvailableSeats struct {
 func main() {
 	wg := &sync.WaitGroup{}
 	// URL API
-	//url := "https://tickets.reaport.ru/buy"
 	url := "https://tickets.reaport.ru/buy"
-	passengers := make([]string, 0)
 	// Генерация UUID для PassengerID
 	passengerUUID := uuid.New().String()
 
@@ -87,15 +85,7 @@ func main() {
 		return
 	}
 	defer resp.Body.Close()
-	// Чтение тела ответа
-	//body, err := ioutil.ReadAll(resp.Body)
-	//if err != nil {
-	//	fmt.Println("Error reading response body:", err)
-	//	return
-	//}
-	//
-	//// Вы можете вывести тело как строку для дебага
-	//fmt.Println("✅ Response Body:", string(body))
+
 	// Проверка статуса ответа
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Ошибка: код ответа %d\n", resp.StatusCode)
@@ -105,18 +95,18 @@ func main() {
 	// Чтение и десериализация ответа
 	var responseData TicketResponse
 	err = json.NewDecoder(resp.Body).Decode(&responseData)
-	//if err != nil {
-	//	fmt.Println("Ошибка при декодировании ответа:", err)
-	//	return
-	//}
+	if err != nil {
+		fmt.Println("Ошибка при декодировании ответа:", err)
+		return
+	}
 
-	fmt.Println("Декодирование ", responseData)
 	// Вывод результата в читаемом виде
 	jsonOutput, _ := json.MarshalIndent(responseData, "", "  ")
 	fmt.Println("Ответ от сервера:")
 	fmt.Println(string(jsonOutput))
 	flights := responseData.AvailableFlights
 	for _, flight := range flights {
+		passengers := make([]string, 0)
 		for i := 0; i < flight.AvailableSeats.Economy/10; i++ {
 			// Генерация UUID для PassengerID
 			passengerId := uuid.New().String()
@@ -137,7 +127,7 @@ func main() {
 			// Создание контекста с тайм-аутом в 5 секунд
 			ctx, can := context.WithTimeout(context.Background(), 5*time.Second)
 			defer can() // Отмена контекста после завершения
-			fmt.Print("Пассажир ", passengerId, " покупает билет на рейс", flight.FlightID)
+			fmt.Println("Пассажир ", passengerId, " покупает билет на рейс", flight.FlightID)
 			// Создание HTTP-запроса с привязкой к контексту
 			req2, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonDat))
 			if err != nil {
@@ -162,12 +152,11 @@ func main() {
 				fmt.Printf("Ошибка: код ответа %d\n", resp.StatusCode)
 				return
 			}
-			passengers = append(passengers, passengerUUID)
-			fmt.Println("  ✅ Success")
+			passengers = append(passengers, passengerId)
 		}
 		// Регистрируемся на рейс
 		wg.Add(1)
-		go Register(passengers, flight.FlightID, flight.StartRegisterTime.Add(2*time.Hour).Add(1*time.Minute), wg)
+		go Register(passengers, flight.FlightID, flight.StartRegisterTime, wg)
 	}
 	wg.Wait()
 }
@@ -180,21 +169,18 @@ type Passenger struct {
 
 func Register(passangers []string, flightId string, departureTime time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-	registationTime := departureTime.Add(-3 * time.Hour)
-	fmt.Println("departureTime ", departureTime, "registationTime ", registationTime)
+	registationTime := departureTime.Add(-59 * time.Minute).Add(30 * time.Second)
 	timeUntil := time.Until(registationTime)
 	timerChan := time.After(timeUntil)
-	fmt.Println()
-	fmt.Println("✈️ Register wait ", flightId, " ждём ", float64(timeUntil)/float64(time.Minute), " минут")
+	fmt.Println("✈️ Register wait ", flightId, "ждём ", float64(timeUntil)/float64(time.Minute), "минут")
 	// Ждём когда начнётся регистрация
 	<-timerChan
 	fmt.Println("✈️ Register begin", flightId)
-
-	for i := 1; i < 2; i++ {
-		fmt.Print("Регистрируется пассажир", i, "на рейс ", flightId)
+	for _, pass := range passangers {
+		fmt.Print("Регистрируется пассажир ", pass, " на рейс ", flightId)
 		url := "https://register.reaport.ru/passenger"
 		requestBody := Passenger{
-			Uuid:          fmt.Sprint(i),
+			Uuid:          pass,
 			BaggageWeight: 0.1,
 			MealType:      "Vegetarian",
 		}
@@ -233,6 +219,6 @@ func Register(passangers []string, flightId string, departureTime time.Time, wg 
 			fmt.Printf("Ошибка: код ответа %d\n", resp.StatusCode)
 			return
 		}
-		fmt.Println("  ✅ Success")
+		fmt.Println("  ✅ Succes")
 	}
 }
